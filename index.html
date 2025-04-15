@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mines Game - No Glow on Tiles and Slider</title>
+  <style>
+    /* ==============================
+       GLOBAL RESET & BODY
+    ============================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background-color: #0b0b0d;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    /* ==============================
+       TOP NAVBAR
+    ============================== */
+    .navbar {
+      width: 100%;
+      background-color: #18181c;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #2c2c34;
+      box-shadow: 0 0 10px #7c3aed;
+    }
+    .navbar .nav-left {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #c4b5fd;
+    }
+    .navbar .nav-center button,
+    .navbar .nav-right button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 1rem;
+      margin-right: 15px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .navbar .nav-center button:hover,
+    .navbar .nav-right button:hover {
+      color: #a78bfa;
+    }
+    .navbar .nav-right .balance {
+      margin-right: 10px;
+      font-size: 1rem;
+      color: #7c3aed;
+      animation: pulseWallet 1s ease-out;
+    }
+    @keyframes pulseWallet {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    /* ==============================
+       GAME OVERLAY
+    ============================== */
+    .game-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    .game-overlay.active { opacity: 1; }
+    /* ==============================
+       MAIN CONTAINER
+    ============================== */
+    .main-container {
+      display: flex;
+      min-height: 80vh;
+      opacity: 0;
+      animation: fadeIn 0.8s forwards;
+      position: relative;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    /* ==============================
+       LEFT SIDEBAR (CONTROLS)
+    ============================== */
+    .sidebar-left {
+      width: 250px;
+      background-color: #18181c;
+      border-right: 1px solid #2c2c34;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      animation: slideInLeft 0.8s forwards;
+      box-shadow: 0 0 8px #7c3aed;
+    }
+    @keyframes slideInLeft {
+      from { transform: translateX(-50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sidebar-left h2 { font-size: 1.1rem; color: #a78bfa; }
+    .bet-panel { display: flex; flex-direction: column; gap: 10px; }
+    .bet-control { display: flex; flex-direction: column; gap: 5px; }
+    .bet-control label { font-size: 0.85rem; color: #c4b5fd; }
+    /* ==============================
+       SLIDER & NUMBER INPUT (No Glow)
+    ============================== */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px;
+      border-radius: 4px;
+      background: #7c3aed;
+    }
+    input[type="range"]::-moz-range-track {
+      height: 8px;
+      border-radius: 4px;
+      background: #7c3aed;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      cursor: pointer;
+    }
+    .bet-control input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      border: 1px solid #2c2c34;
+      border-radius: 5px;
+      background: #2c2c34;
+      color: #fff;
+    }
+    /* ==============================
+       ACTION BUTTON
+    ============================== */
+    .action-button {
+      position: relative;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      background-color: #7c3aed;
+      color: #fff;
+      transition: background-color 0.2s, transform 0.2s;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 10px #7c3aed;
+    }
+    .action-button:hover {
+      background-color: #6d28d9;
+      transform: scale(1.02);
+    }
+    .action-button.disabled { opacity: 0.5; pointer-events: none; }
+    .button-loading::after {
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      border: 2px solid rgba(255,255,255,0.6);
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: buttonSpin 0.8s linear infinite;
+    }
+    @keyframes buttonSpin { to { transform: rotate(360deg); } }
+    .sidebar-footer { font-size: 0.85rem; color: #7c3aed; margin-top: auto; }
+    /* ==============================
+       MIDDLE GRID AREA
+    ============================== */
+    .grid-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      overflow-y: auto;
+      animation: slideInUp 0.8s forwards;
+    }
+    @keyframes slideInUp {
+      from { transform: translateY(50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .grid-title {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      color: #c4b5fd;
+      text-shadow: 0 0 8px #7c3aed;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 70px);
+      gap: 15px;
+    }
+    .tile {
+      width: 70px;
+      height: 70px;
+      perspective: 1000px;
+      background: transparent;
+      opacity: 0;
+      animation: tileEntrance 0.4s ease forwards;
+    }
+    @keyframes tileEntrance {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .tile-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.3s ease;
+    }
+    .tile:not(.flip):hover .tile-inner {
+      transform: translateY(-10px) scale(1.05);
+      filter: drop-shadow(0 0 10px #7c3aed);
+    }
+    .tile-front, .tile-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background-color: #3f3f46;
+      color: #fff;
+    }
+    .tile-back { transform: rotateX(180deg); }
+    .tile.flip .tile-inner { transform: rotateX(180deg); }
+    .pending-flip {
+      animation: flipAnimation 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+    @keyframes flipAnimation {
+      0% { transform: translateY(0) rotateX(0deg); }
+      50% { transform: translateY(-10px) rotateX(90deg); }
+      100% { transform: translateY(-10px) rotateX(180deg); }
+    }
+    /* ==============================
+       POPUP (Multiplier and others)
+    ============================== */
+    .popup {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.9rem;
+      color: #10b981;
+      pointer-events: none;
+      animation: popupAnim 1.5s ease-out forwards;
+    }
+    @keyframes popupAnim {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -100px) scale(0.8); }
+    }
+    /* ==============================
+       RIGHT SIDEBAR (STATS)
+    ============================== */
+    .sidebar-right {
+      width: 200px;
+      background-color: #18181c;
+      border-left: 1px solid #2c2c34;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      animation: slideInRight 0.8s forwards;
+      box-shadow: 0 0 8px #7c3aed;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sidebar-right h3 {
+      margin-bottom: 10px;
+      color: #a78bfa;
+      font-size: 1rem;
+    }
+    .info-box {
+      background-color: #2c2c34;
+      padding: 10px;
+      border-radius: 8px;
+      color: #fff;
+      box-shadow: 0 0 8px #7c3aed;
+    }
+    #multiplierDisplay {
+      font-size: 1rem;
+      color: #00ffcc;
+      text-shadow: 0 0 5px #00ffcc;
+      animation: bounceMultiplier 0.5s ease;
+    }
+    @keyframes bounceMultiplier {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    /* ==============================
+       BOTTOM MESSAGE
+    ============================== */
+    .bottom-bar {
+      width: 100%;
+      background-color: #18181c;
+      border-top: 1px solid #2c2c34;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 8px #7c3aed;
+    }
+    .message {
+      font-size: 1rem;
+      color: #ff6b6b;
+      animation: gameOverGlow 2s infinite alternate;
+      text-align: center;
+    }
+    @keyframes gameOverGlow {
+      0% { text-shadow: 0 0 8px #ff6b6b; }
+      100% { text-shadow: 0 0 20px #ff6b6b; }
+    }
+    /* ==============================
+       LOSS EXPLOSION ANIMATION
+    ============================== */
+    @keyframes mineExplode {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.2) rotate(15deg); }
+      50% { transform: scale(0.8) rotate(-15deg); }
+      75% { transform: scale(1.1) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    .mine-revealed {
+      animation: mineExplode 0.6s ease;
+      color: #790b0b !important;
+    }
+    /* ==============================
+       RANDOM TILE HIGHLIGHT
+    ============================== */
+    @keyframes tileHighlight {
+      0% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+      50% { box-shadow: 0 0 0 8px rgba(124,58,237,0.3); }
+      100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+    }
+    .tile-highlight .tile-front {
+      animation: tileHighlight 0.6s ease;
+    }
+
+    .mine-triggered .tile-front,
+.mine-triggered .tile-back {
+    background-color: #ff4444; /* Example: Red color */
+    color: #fff;
+    animation: pulseMine 0.5s infinite alternate;
+}
+
+@keyframes pulseMine {
+    0% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
+  </style>
+</head>
+<body>
+  <!-- Game Overlay for end-of-game feedback -->
+  <div class="game-overlay" id="gameOverlay"></div>
+
+  <!-- TOP NAVBAR -->
+  <div class="navbar">
+    <div class="nav-left">AceGamble</div>
+    <div class="nav-center">
+      <button>Games</button>
+    </div>
+    <div class="nav-right">
+      <span class="balance" id="walletBalance">Balance: $50.00</span>
+      <button id="walletButton">Wallet</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="main-container">
+    <!-- LEFT SIDEBAR (Controls) -->
+    <div class="sidebar-left">
+      <h2>Bet Controls</h2>
+      <div class="bet-panel">
+        <div class="bet-control">
+          <label for="betInput">Amount:</label>
+          <input type="number" id="betInput" min="0.20" step="0.01" value="10">
+        </div>
+        <div class="bet-control">
+          <label for="minesSlider">Mines: <span id="minesValue">5</span></label>
+          <input type="range" id="minesSlider" min="1" max="24" value="5">
+        </div>
+      </div>
+      <!-- Main action buttons -->
+      <button class="action-button" id="startGameBtn">Start Game</button>
+      <button class="action-button" id="randomTileBtn">Pick Random Tile</button>
+      <div class="sidebar-footer">
+        <p>Min Bet: $0.20 | Max Win: $2,000.00</p>
+      </div>
+    </div>
+
+    <!-- MIDDLE GRID AREA -->
+    <div class="grid-area">
+      <h2 class="grid-title">Mines Game</h2>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- RIGHT SIDEBAR (Stats) -->
+    <div class="sidebar-right">
+      <h3>Game Stats</h3>
+      <div class="info-box">
+        <p id="multiplierDisplay">Multiplier: 0.50x</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM MESSAGE AREA -->
+  <div class="bottom-bar">
+    <p class="message" id="message"></p>
+  </div>
+
+  <!-- JAVASCRIPT GAME LOGIC -->
+  <script>
+    /***********************
+     *  GLOBAL STATE
+     ***********************/
+    let walletBalance = 50.00; // starting balance
+    let betAmount = 10;
+    let mineCount = 5;
+    let gameOver = false;
+    let safeRevealed = 0;
+    let pendingMineTriggered = false;
+    let isGameStarted = false; // tracks if a game is in progress
+    let buttonLocked = false;  // prevents rapid clicks
+
+    // Grid state
+    const gridSize = 5;
+    let grid = [];
+    let revealed = [];
+
+    /***********************
+     *  DOM REFERENCES
+     ***********************/
+    const walletBalanceEl = document.getElementById('walletBalance');
+    const betInput = document.getElementById('betInput');
+    const minesSlider = document.getElementById('minesSlider');
+    const minesValue = document.getElementById('minesValue');
+    const multiplierDisplay = document.getElementById('multiplierDisplay');
+    const messageEl = document.getElementById('message');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const randomTileBtn = document.getElementById('randomTileBtn');
+    const gridContainer = document.getElementById('grid');
+    const gameOverlay = document.getElementById('gameOverlay');
+
+    /***********************
+     *  INITIALIZE DISPLAY
+     ***********************/
+    updateWalletDisplay();
+
+    /***********************
+     *  EVENT LISTENERS
+     ***********************/
+    betInput.addEventListener('input', (e) => {
+      let value = Number(e.target.value);
+      if (value < 0.20) value = 0.20;
+      if (value > walletBalance) value = walletBalance;
+      betInput.value = value.toFixed(2);
+      betAmount = value;
+    });
+    minesSlider.addEventListener('input', (e) => {
+      mineCount = Number(e.target.value);
+      minesValue.textContent = mineCount;
+      updateMultiplierDisplay(computeMultiplier());
+    });
+    // Start Game / Cashout button
+    startGameBtn.addEventListener('click', () => {
+      if (buttonLocked) return;
+      buttonLocked = true;
+      startGameBtn.classList.add('button-loading');
+      if (isGameStarted && !gameOver) {
+        cashout();
+      } else {
+        if (betAmount < 0.20 || betAmount > walletBalance) {
+          betInput.reportValidity();
+          buttonLocked = false;
+          startGameBtn.classList.remove('button-loading');
+          return;
+        }
+        resetGame();
+        generateGrid();
+        renderGrid();
+        displayMessage('');
+        startGameBtn.textContent = "Cashout";
+        isGameStarted = true;
+        setControlsDisabled(true);
+      }
+      setTimeout(() => {
+        buttonLocked = false;
+        startGameBtn.classList.remove('button-loading');
+      }, 1200);
+    });
+    // Random Tile button
+    randomTileBtn.addEventListener('click', () => {
+      if (buttonLocked) return;
+      buttonLocked = true;
+      const index = pickRandomTile();
+      if (index !== null) {
+        const tile = gridContainer.children[index];
+        tile.classList.add('tile-highlight');
+        setTimeout(() => {
+          tile.classList.remove('tile-highlight');
+          revealTile(index);
+        }, 500);
+      }
+      setTimeout(() => { buttonLocked = false; }, 800);
+    });
+    /***********************
+     *  FUNCTIONS
+     ***********************/
+    // Disable or enable controls
+    function setControlsDisabled(state) {
+      betInput.disabled = state;
+      minesSlider.disabled = state;
+      randomTileBtn.disabled = state;
+    }
+    // Update wallet display with a pulse effect
+    function updateWalletDisplay() {
+      walletBalanceEl.textContent = `Balance: $${walletBalance.toFixed(2)}`;
+      betInput.max = walletBalance;
+      walletBalanceEl.style.animation = 'pulseWallet 0.5s ease';
+      setTimeout(() => { walletBalanceEl.style.animation = ''; }, 500);
+    }
+    // Generate grid and reset state
+    function generateGrid() {
+      grid = Array(gridSize * gridSize).fill(false);
+      revealed = Array(gridSize * gridSize).fill(false);
+      safeRevealed = 0;
+      pendingMineTriggered = false;
+      gameOver = false;
+      gameOverlay.classList.remove('active');
+      const totalTiles = gridSize * gridSize;
+      const positions = new Set();
+      while (positions.size < mineCount) {
+        positions.add(Math.floor(Math.random() * totalTiles));
+      }
+      positions.forEach((pos) => { grid[pos] = true; });
+      updateMultiplierDisplay(computeMultiplier());
+    }
+    // Render grid with entrance animations
+    function renderGrid() {
+      gridContainer.innerHTML = '';
+      for (let i = 0; i < grid.length; i++) {
+        const tile = document.createElement('div');
+        tile.classList.add('tile');
+        tile.style.animationDelay = `${i * 0.03}s`;
+        const tileInner = document.createElement('div');
+        tileInner.classList.add('tile-inner');
+        const front = document.createElement('div');
+        front.classList.add('tile-front');
+        const back = document.createElement('div');
+        back.classList.add('tile-back');
+        tileInner.appendChild(front);
+        tileInner.appendChild(back);
+        tile.appendChild(tileInner);
+        tile.addEventListener('click', () => revealTile(i));
+        gridContainer.appendChild(tile);
+      }
+    }
+    // Reveal a tile and update after flip transition
+    // Reveal a tile and update after flip transition
+    function revealTile(index) {
+        if (gameOver || revealed[index] || !isGameStarted) return;
+        revealed[index] = true;
+        const tile = gridContainer.children[index];
+        const tileInner = tile.querySelector('.tile-inner');
+
+        if (grid[index]) {
+            // It's a mine!
+            tile.classList.add('mine-triggered'); // Add a class for styling the triggered mine
+            tileInner.style.transform = 'translateZ(-50px) scale(1.5)'; // Move it forward and scale up
+            tileInner.style.transition = 'transform 0.3s ease-in-out';
+            tileInner.innerHTML = '<div class="tile-front">💣</div><div class="tile-back">💣</div>'; // Ensure bomb is visible
+
+            if (!pendingMineTriggered) {
+                pendingMineTriggered = true;
+                displayMessage('Game Over! You hit a mine. 💥');
+                walletBalance = Math.max(0, walletBalance - betAmount);
+                updateWalletDisplay();
+                gameOver = true;
+                isGameStarted = false;
+                startGameBtn.textContent = "Start Game";
+                setControlsDisabled(false);
+                showGameOverlay('Game Over');
+
+                // Trigger explosion animation after a short delay
+                setTimeout(explodeGrid, 500);
+            }
+        } else {
+            // It's a safe tile (gem)
+            tile.classList.add('flip');
+            const tileBack = tile.querySelector('.tile-back');
+            tileBack.textContent = '💎';
+            tileBack.style.boxShadow = '0 0 10px 5px rgba(0, 123, 255, 0.7)'; // Blue glow
+            safeRevealed++;
+            const plusPopup = document.createElement('span');
+            plusPopup.className = 'popup';
+            plusPopup.textContent = `+${computeMultiplier().toFixed(2)}x`;
+            tile.appendChild(plusPopup);
+            setTimeout(() => plusPopup.remove(), 1200);
+            if (safeRevealed === (grid.length - mineCount)) {
+                gameOver = true;
+                displayMessage('Congratulations! You cleared all safe tiles! 🎉');
+                const winnings = Math.floor(betAmount * computeMultiplier());
+                walletBalance += winnings;
+                updateWalletDisplay();
+                isGameStarted = false;
+                startGameBtn.textContent = "Start Game";
+                setControlsDisabled(false);
+                showGameOverlay(`You Won $${winnings}!`);
+            }
+            updateMultiplierDisplay(computeMultiplier());
+        }
+    }
+    
+    // Staggered bomb reveal during cashout
+    function explodeGrid() {
+        const tiles = Array.from(gridContainer.children);
+        tiles.forEach((tile, index) => {
+            const randomX = (Math.random() - 0.5) * 300;
+            const randomY = (Math.random() - 0.5) * 300;
+            const randomRotation = (Math.random() - 0.5) * 720;
+            const delay = index * 20; // Stagger the animation
+
+            setTimeout(() => {
+                tile.style.transition = `transform 0.5s ease-out, opacity 0.5s ease-out`;
+                tile.style.transform = `translate(${randomX}px, ${randomY}px) rotate(${randomRotation}deg) scale(0)`;
+                tile.style.opacity = 0;
+            }, delay);
+
+            // Remove tiles from DOM after animation
+            setTimeout(() => {
+                tile.remove();
+            }, 500 + delay);
+        });
+    }
+    // Cashout: reveal bombs, calculate winnings, end game
+    function cashout() {
+      if (gameOver) return;
+      gameOver = true;
+      revealBombsWithFlip();
+      const multiplier = computeMultiplier();
+      const winnings = safeRevealed === 0 ? 0 : Math.floor(betAmount * multiplier);
+      walletBalance += winnings;
+      updateWalletDisplay();
+      displayMessage(`Cashed out at ${multiplier.toFixed(2)}x, won $${winnings}!`);
+      isGameStarted = false;
+      startGameBtn.textContent = "Start Game";
+      setControlsDisabled(false);
+      showGameOverlay(`You Won $${winnings}!`);
+    }
+    // Compute current multiplier.
+    function computeMultiplier() {
+      const T = gridSize * gridSize;
+      if (mineCount === 1) {
+        return 0.5 + (safeRevealed / (T - 1)) * 2.5;
+      } else {
+        if (safeRevealed === 0) return 0.5;
+        return 0.5 * (binom(T, mineCount) / binom(T - safeRevealed, mineCount));
+      }
+    }
+    // Compute binomial coefficient: C(n, k)
+    function binom(n, k) {
+      if (k > n) return 0;
+      if (k === 0 || k === n) return 1;
+      k = Math.min(k, n - k);
+      let result = 1;
+      for (let i = 1; i <= k; i++) {
+        result = result * (n - i + 1) / i;
+      }
+      return result;
+    }
+    // Update multiplier display with a bounce effect.
+    function updateMultiplierDisplay(multiplier) {
+      multiplierDisplay.textContent = `Multiplier: ${multiplier.toFixed(2)}x`;
+      multiplierDisplay.style.animation = 'bounceMultiplier 0.5s ease';
+      setTimeout(() => { multiplierDisplay.style.animation = ''; }, 500);
+    }
+    // Weighted random selection of an unrevealed tile (bombs get extra 15% chance)
+    function pickRandomTile() {
+      let indices = [];
+      let weights = [];
+      let totalWeight = 0;
+      for (let i = 0; i < revealed.length; i++) {
+        if (!revealed[i]) {
+          let weight = grid[i] ? 1.15 : 1;
+          indices.push(i);
+          weights.push(weight);
+          totalWeight += weight;
+        }
+      }
+      if (indices.length === 0) return null;
+      let r = Math.random() * totalWeight;
+      let cumulative = 0;
+      for (let j = 0; j < indices.length; j++) {
+        cumulative += weights[j];
+        if (r <= cumulative) return indices[j];
+      }
+      return indices[indices.length - 1];
+    }
+    // Reset game state and clear grid container.
+    function resetGame() {
+      displayMessage('');
+      updateMultiplierDisplay(0);
+      gridContainer.innerHTML = '';
+      gameOverlay.classList.remove('active');
+      setControlsDisabled(false);
+    }
+    // Display a message with forced reflow.
+    function displayMessage(msg) {
+      messageEl.textContent = msg;
+      messageEl.classList.remove('animate');
+      void messageEl.offsetWidth;
+      messageEl.classList.add('animate');
+    }
+    // Show game overlay with custom message.
+    function showGameOverlay(text) {
+      gameOverlay.textContent = text;
+      gameOverlay.classList.add('active');
+      setTimeout(() => { gameOverlay.classList.remove('active'); }, 2000);
+    }
+  </script>
+</body>
+</html>
