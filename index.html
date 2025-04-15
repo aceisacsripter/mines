@@ -362,7 +362,7 @@
     }
     .mine-revealed {
       animation: mineExplode 0.6s ease;
-      color: #790b0b !important;
+      color: #ff4444 !important;
     }
     /* ==============================
        RANDOM TILE HIGHLIGHT
@@ -375,19 +375,6 @@
     .tile-highlight .tile-front {
       animation: tileHighlight 0.6s ease;
     }
-
-    .mine-triggered .tile-front,
-.mine-triggered .tile-back {
-    background-color: #ff4444; /* Example: Red color */
-    color: #fff;
-    animation: pulseMine 0.5s infinite alternate;
-}
-
-@keyframes pulseMine {
-    0% { opacity: 1; }
-    100% { opacity: 0.7; }
-}
-
   </style>
 </head>
 <body>
@@ -653,25 +640,26 @@
     }
     
     // Staggered bomb reveal during cashout
-    function explodeGrid() {
-        const tiles = Array.from(gridContainer.children);
-        tiles.forEach((tile, index) => {
-            const randomX = (Math.random() - 0.5) * 300;
-            const randomY = (Math.random() - 0.5) * 300;
-            const randomRotation = (Math.random() - 0.5) * 720;
-            const delay = index * 20; // Stagger the animation
-
-            setTimeout(() => {
-                tile.style.transition = `transform 0.5s ease-out, opacity 0.5s ease-out`;
-                tile.style.transform = `translate(${randomX}px, ${randomY}px) rotate(${randomRotation}deg) scale(0)`;
-                tile.style.opacity = 0;
-            }, delay);
-
-            // Remove tiles from DOM after animation
-            setTimeout(() => {
-                tile.remove();
-            }, 500 + delay);
-        });
+    function revealBombsWithFlip() {
+      let delay = 0;
+      for (let i = 0; i < grid.length; i++) {
+        if (grid[i] && !revealed[i]) {
+          setTimeout(() => {
+            revealed[i] = true;
+            const tile = gridContainer.children[i];
+            tile.classList.add('flip');
+            const tileInner = tile.querySelector('.tile-inner');
+            tileInner.addEventListener("transitionend", function handler(e) {
+              if (e.propertyName === "transform") {
+                tile.querySelector('.tile-back').textContent = '💣';
+                tile.querySelector('.tile-back').classList.add('mine-revealed');
+                tileInner.removeEventListener("transitionend", handler);
+              }
+            });
+          }, delay);
+          delay += 150;
+        }
+      }
     }
     // Cashout: reveal bombs, calculate winnings, end game
     function cashout() {
