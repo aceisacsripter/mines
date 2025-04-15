@@ -2,16 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Mines Game - No Glow on Tiles and Slider</title>
+  <title>Mines Game - Enhanced Animations</title>
   <style>
     /* ==============================
        GLOBAL RESET & BODY
     ============================== */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       background-color: #0b0b0d;
@@ -93,8 +89,7 @@
       position: relative;
     }
     @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
+      from { opacity: 0; } to { opacity: 1; }
     }
     /* ==============================
        LEFT SIDEBAR (CONTROLS)
@@ -126,25 +121,15 @@
       width: 100%;
       background: transparent;
     }
-    input[type="range"]::-webkit-slider-runnable-track {
-      height: 8px;
-      border-radius: 4px;
-      background: #7c3aed;
-    }
+    input[type="range"]::-webkit-slider-runnable-track,
     input[type="range"]::-moz-range-track {
       height: 8px;
       border-radius: 4px;
       background: #7c3aed;
     }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #e0e0e0;
-      cursor: pointer;
-    }
+    input[type="range"]::-webkit-slider-thumb,
     input[type="range"]::-moz-range-thumb {
+      -webkit-appearance: none;
       width: 16px;
       height: 16px;
       border-radius: 50%;
@@ -375,6 +360,18 @@
     .tile-highlight .tile-front {
       animation: tileHighlight 0.6s ease;
     }
+    /* ==============================
+       NEW STYLES FOR GLOW & BOMB
+    ============================== */
+    .gem-glow {
+      box-shadow: 0 0 15px blue;
+    }
+    .flying-bomb {
+      z-index: 20;
+      pointer-events: none;
+      position: absolute;
+      font-size: 40px;
+    }
   </style>
 </head>
 <body>
@@ -422,7 +419,7 @@
       <div class="grid" id="grid"></div>
     </div>
 
-    <!-- RIGHT SIDEBAR (Stats) -->
+    <!-- RIGHT SIDEBAR (STATS) -->
     <div class="sidebar-right">
       <h3>Game Stats</h3>
       <div class="info-box">
@@ -583,62 +580,114 @@
         gridContainer.appendChild(tile);
       }
     }
-    // Reveal a tile and update after flip transition
-    // Reveal a tile and update after flip transition
+    // Reveal a tile.
+    // If a bomb tile is clicked, trigger bomb explosion (without flip).
     function revealTile(index) {
-        if (gameOver || revealed[index] || !isGameStarted) return;
+      if (gameOver || revealed[index] || !isGameStarted) return;
+      // If bomb tile, trigger bomb explosion animation.
+      if (grid[index]) {
+        // Mark as revealed to avoid multiple triggers.
         revealed[index] = true;
-        const tile = gridContainer.children[index];
-        const tileInner = tile.querySelector('.tile-inner');
-
-        if (grid[index]) {
-            // It's a mine!
-            tile.classList.add('mine-triggered'); // Add a class for styling the triggered mine
-            tileInner.style.transform = 'translateZ(-50px) scale(1.5)'; // Move it forward and scale up
-            tileInner.style.transition = 'transform 0.3s ease-in-out';
-            tileInner.innerHTML = '<div class="tile-front">💣</div><div class="tile-back">💣</div>'; // Ensure bomb is visible
-
-            if (!pendingMineTriggered) {
-                pendingMineTriggered = true;
-                displayMessage('Game Over! You hit a mine. 💥');
-                walletBalance = Math.max(0, walletBalance - betAmount);
-                updateWalletDisplay();
-                gameOver = true;
-                isGameStarted = false;
-                startGameBtn.textContent = "Start Game";
-                setControlsDisabled(false);
-                showGameOverlay('Game Over');
-
-                // Trigger explosion animation after a short delay
-                setTimeout(explodeGrid, 500);
-            }
-        } else {
-            // It's a safe tile (gem)
-            tile.classList.add('flip');
-            const tileBack = tile.querySelector('.tile-back');
-            tileBack.textContent = '💎';
-            tileBack.style.boxShadow = '0 0 10px 5px rgba(0, 123, 255, 0.7)'; // Blue glow
-            safeRevealed++;
-            const plusPopup = document.createElement('span');
-            plusPopup.className = 'popup';
-            plusPopup.textContent = `+${computeMultiplier().toFixed(2)}x`;
-            tile.appendChild(plusPopup);
-            setTimeout(() => plusPopup.remove(), 1200);
-            if (safeRevealed === (grid.length - mineCount)) {
-                gameOver = true;
-                displayMessage('Congratulations! You cleared all safe tiles! 🎉');
-                const winnings = Math.floor(betAmount * computeMultiplier());
-                walletBalance += winnings;
-                updateWalletDisplay();
-                isGameStarted = false;
-                startGameBtn.textContent = "Start Game";
-                setControlsDisabled(false);
-                showGameOverlay(`You Won $${winnings}!`);
-            }
-            updateMultiplierDisplay(computeMultiplier());
+        triggerBombExplosion(index);
+        return;
+      }
+      // Safe tile: flip normally.
+      revealed[index] = true;
+      const tile = gridContainer.children[index];
+      tile.classList.add('flip');
+      const tileInner = tile.querySelector('.tile-inner');
+      tileInner.addEventListener("transitionend", function handler(e) {
+        if (e.propertyName === "transform") {
+          const tileBack = tile.querySelector('.tile-back');
+          tileBack.textContent = '💎';
+          // Add blue glow to gem.
+          tileBack.classList.add('gem-glow');
+          safeRevealed++;
+          const plusPopup = document.createElement('span');
+          plusPopup.className = 'popup';
+          plusPopup.textContent = `+${computeMultiplier().toFixed(2)}x`;
+          tile.appendChild(plusPopup);
+          setTimeout(() => plusPopup.remove(), 1500);
+          if (safeRevealed === (grid.length - mineCount)) {
+            gameOver = true;
+            displayMessage('Congratulations! You cleared all safe tiles! 🎉');
+            const winnings = Math.floor(betAmount * computeMultiplier());
+            walletBalance += winnings;
+            updateWalletDisplay();
+            isGameStarted = false;
+            startGameBtn.textContent = "Start Game";
+            setControlsDisabled(false);
+            showGameOverlay(`You Won $${winnings}!`);
+          }
+          updateMultiplierDisplay(computeMultiplier());
+          tileInner.removeEventListener("transitionend", handler);
         }
+      });
     }
-    
+    // Trigger bomb explosion:
+    // The bomb element flies from the clicked tile's position to the center and explodes,
+    // then all tiles are animated to vanish.
+    function triggerBombExplosion(index) {
+      const tile = gridContainer.children[index];
+      // Get tile's position relative to the viewport.
+      const rect = tile.getBoundingClientRect();
+      // Create flying bomb element.
+      const bombElem = document.createElement('div');
+      bombElem.className = 'flying-bomb';
+      bombElem.textContent = '💣';
+      bombElem.style.left = rect.left + 'px';
+      bombElem.style.top = rect.top + 'px';
+      document.body.appendChild(bombElem);
+      // Calculate center coordinates.
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      // Animate the bomb element to the center, then scale and fade (simulate explosion).
+      bombElem.animate([
+        { transform: 'translate(0,0)' },
+        { transform: `translate(${centerX - rect.left}px, ${centerY - rect.top}px)`, offset: 0.5 },
+        { transform: `translate(${centerX - rect.left}px, ${centerY - rect.top}px) scale(2)`, opacity: 0, offset: 1 }
+      ], {
+        duration: 1000,
+        easing: 'ease-in-out',
+        fill: 'forwards'
+      }).onfinish = () => {
+        bombElem.remove();
+        explodeAllTiles();
+      };
+      displayMessage('Game Over! You hit a mine. 💥');
+      walletBalance = Math.max(0, walletBalance - betAmount);
+      updateWalletDisplay();
+      gameOver = true;
+      isGameStarted = false;
+      startGameBtn.textContent = "Start Game";
+      setControlsDisabled(false);
+      showGameOverlay('Game Over');
+    }
+    // Animate explosion on all tiles (they scale to zero and fade out).
+    function explodeAllTiles() {
+      for (let i = 0; i < gridContainer.children.length; i++) {
+        const tile = gridContainer.children[i];
+        tile.animate([
+          { opacity: 1, transform: 'scale(1)' },
+          { opacity: 0, transform: 'scale(0)' }
+        ], { duration: 500, fill: 'forwards' });
+      }
+    }
+    // Cashout: reveal bombs (only safe tiles flip), calculate winnings, end game
+    function cashout() {
+      if (gameOver) return;
+      gameOver = true;
+      revealBombsWithFlip();
+      const multiplier = computeMultiplier();
+      const winnings = safeRevealed === 0 ? 0 : Math.floor(betAmount * multiplier);
+      walletBalance += winnings;
+      updateWalletDisplay();
+      displayMessage(`Cashed out at ${multiplier.toFixed(2)}x, won $${winnings}!`);
+      isGameStarted = false;
+      startGameBtn.textContent = "Start Game";
+      setControlsDisabled(false);
+      showGameOverlay(`You Won $${winnings}!`);
+    }
     // Staggered bomb reveal during cashout
     function revealBombsWithFlip() {
       let delay = 0;
@@ -660,21 +709,6 @@
           delay += 150;
         }
       }
-    }
-    // Cashout: reveal bombs, calculate winnings, end game
-    function cashout() {
-      if (gameOver) return;
-      gameOver = true;
-      revealBombsWithFlip();
-      const multiplier = computeMultiplier();
-      const winnings = safeRevealed === 0 ? 0 : Math.floor(betAmount * multiplier);
-      walletBalance += winnings;
-      updateWalletDisplay();
-      displayMessage(`Cashed out at ${multiplier.toFixed(2)}x, won $${winnings}!`);
-      isGameStarted = false;
-      startGameBtn.textContent = "Start Game";
-      setControlsDisabled(false);
-      showGameOverlay(`You Won $${winnings}!`);
     }
     // Compute current multiplier.
     function computeMultiplier() {
