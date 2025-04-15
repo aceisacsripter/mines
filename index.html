@@ -372,6 +372,75 @@
       position: absolute;
       font-size: 40px;
     }
+
+    /* ==============================
+       ENHANCED EXPLOSION EFFECTS
+    ============================== */
+    @keyframes screenShake {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(-10px, 15px); }
+      50% { transform: translate(10px, -10px); }
+      75% { transform: translate(-15px, 5px); }
+      100% { transform: translate(0, 0); }
+    }
+
+    @keyframes explosionFlash {
+      0% { opacity: 0; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes shockwave {
+      from { transform: scale(0); opacity: 1; }
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    @keyframes particle {
+      0% { transform: translate(0, 0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--x, 0), var(--y, 0)) scale(0); opacity: 0; }
+    }
+
+    .explosion-flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.6);
+      pointer-events: none;
+      animation: explosionFlash 0.3s ease-out;
+    }
+
+    .shockwave {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,80,0,0.8) 0%, rgba(255,30,0,0) 70%);
+      animation: shockwave 0.8s ease-out;
+    }
+
+    .explosion-particle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: radial-gradient(circle, #ff4444 0%, #ff8800 100%);
+      border-radius: 50%;
+      animation: particle 1s ease-out forwards;
+    }
+
+    .mine-revealed {
+      animation: mineExplode 0.6s ease;
+      color: #ff4444 !important;
+    }
+
+    @keyframes mineExplode {
+      0% { transform: scale(1) rotate(0deg); }
+      25% { transform: scale(1.4) rotate(15deg); }
+      50% { transform: scale(0.4) rotate(-15deg); }
+      75% { transform: scale(1.2) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
   </style>
 </head>
 <body>
@@ -629,31 +698,41 @@
     // then all tiles are animated to vanish.
     function triggerBombExplosion(index) {
       const tile = gridContainer.children[index];
-      // Get tile's position relative to the viewport.
       const rect = tile.getBoundingClientRect();
-      // Create flying bomb element.
+      
+      // Create flying bomb element
       const bombElem = document.createElement('div');
       bombElem.className = 'flying-bomb';
       bombElem.textContent = '💣';
       bombElem.style.left = rect.left + 'px';
       bombElem.style.top = rect.top + 'px';
       document.body.appendChild(bombElem);
-      // Calculate center coordinates.
+
+      // Calculate center coordinates
       const centerX = window.innerWidth / 2;
       const centerY = window.innerHeight / 2;
-      // Animate the bomb element to the center, then scale and fade (simulate explosion).
+
+      // Animate bomb to center with rotation
       bombElem.animate([
-        { transform: 'translate(0,0)' },
-        { transform: `translate(${centerX - rect.left}px, ${centerY - rect.top}px)`, offset: 0.5 },
-        { transform: `translate(${centerX - rect.left}px, ${centerY - rect.top}px) scale(2)`, opacity: 0, offset: 1 }
+        { transform: 'translate(0,0) rotate(0deg)' },
+        { transform: `translate(${centerX - rect.left}px, ${centerY - rect.top}px) rotate(720deg)` }
       ], {
-        duration: 1000,
+        duration: 800,
         easing: 'ease-in-out',
         fill: 'forwards'
       }).onfinish = () => {
+        // Explosion effects
+        document.body.classList.add('screen-shake');
+        createExplosionEffects(centerX, centerY);
+        setTimeout(() => {
+          document.body.classList.remove('screen-shake');
+          explodeAllTiles();
+        }, 800);
+        
         bombElem.remove();
-        explodeAllTiles();
       };
+
+      // Game state updates
       displayMessage('Game Over! You hit a mine. 💥');
       walletBalance = Math.max(0, walletBalance - betAmount);
       updateWalletDisplay();
@@ -663,32 +742,60 @@
       setControlsDisabled(false);
       showGameOverlay('Game Over');
     }
-    // Animate explosion on all tiles (they scale to zero and fade out).
-    function explodeAllTiles() {
-      for (let i = 0; i < gridContainer.children.length; i++) {
-        const tile = gridContainer.children[i];
-        tile.animate([
-          { opacity: 1, transform: 'scale(1)' },
-          { opacity: 0, transform: 'scale(0)' }
-        ], { duration: 500, fill: 'forwards' });
+
+    function createExplosionEffects(x, y) {
+      // Flash effect
+      const flash = document.createElement('div');
+      flash.className = 'explosion-flash';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 300);
+
+      // Shockwave effect
+      const shockwave = document.createElement('div');
+      shockwave.className = 'shockwave';
+      shockwave.style.left = x + 'px';
+      shockwave.style.top = y + 'px';
+      document.body.appendChild(shockwave);
+      setTimeout(() => shockwave.remove(), 800);
+
+      // Create particles
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'explosion-particle';
+        particle.style.left = x + 'px';
+        particle.style.top = y + 'px';
+        particle.style.setProperty('--x', `${Math.random() * 400 - 200}px`);
+        particle.style.setProperty('--y', `${Math.random() * 400 - 200}px`);
+        document.body.appendChild(particle);
+        setTimeout(() => particle.remove(), 1000);
       }
     }
-    // Cashout: reveal bombs (only safe tiles flip), calculate winnings, end game
-    function cashout() {
-      if (gameOver) return;
-      gameOver = true;
-      revealBombsWithFlip();
-      const multiplier = computeMultiplier();
-      const winnings = safeRevealed === 0 ? 0 : Math.floor(betAmount * multiplier);
-      walletBalance += winnings;
-      updateWalletDisplay();
-      displayMessage(`Cashed out at ${multiplier.toFixed(2)}x, won $${winnings}!`);
-      isGameStarted = false;
-      startGameBtn.textContent = "Start Game";
-      setControlsDisabled(false);
-      showGameOverlay(`You Won $${winnings}!`);
+
+    function explodeAllTiles() {
+      const tiles = Array.from(gridContainer.children);
+      tiles.forEach((tile, index) => {
+        const rect = tile.getBoundingClientRect();
+        const centerX = rect.left + rect.width/2;
+        const centerY = rect.top + rect.height/2;
+        const angle = Math.atan2(centerY - window.innerHeight/2, centerX - window.innerWidth/2);
+        const force = Math.random() * 500 + 200;
+        
+        tile.animate([
+          { 
+            transform: 'translate(0, 0) rotate(0deg)',
+            opacity: 1
+          },
+          { 
+            transform: `translate(${Math.cos(angle) * force}px, ${Math.sin(angle) * force}px) 
+                       rotate(${Math.random() * 360}deg)`,
+            opacity: 0
+          }
+        ], { 
+          duration: 1000 + Math.random() * 500,
+          easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+        });
+      });
     }
-    // Staggered bomb reveal during cashout
     function revealBombsWithFlip() {
       let delay = 0;
       for (let i = 0; i < grid.length; i++) {
